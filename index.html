@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'">
+  <title>Google Drive Sync</title>
+  <link rel="stylesheet" href="styles.css">
+  <script src="src/dbManager.js"></script>
+</head>
+<body>
+  <div class="container">
+    <h1>Google Drive Sync</h1>
+    
+    <div id="auth-section" class="section">
+      <h2>1. Authentication</h2>
+      <p style="color: #666; margin-bottom: 15px;">Click the button below to sign in with your Google account</p>
+      <button id="authBtn" class="btn btn-primary">Sign in with Google</button>
+      <div id="authStatus" class="status"></div>
+      <div id="authUrlBox" style="display: none; margin-top: 15px; padding: 15px; background: #f0f0f0; border-radius: 4px;">
+        <p style="margin-bottom: 10px; font-weight: 500;">If browser doesn't open, click this link:</p>
+        <a id="authUrlLink" href="#" target="_blank" style="color: #4285f4; word-break: break-all; font-size: 12px;"></a>
+      </div>
+    </div>
+
+    <div id="sync-section" class="section" style="display: none;">
+      <h2>2. Configure Sync</h2>
+      <p style="color: #666; font-size: 13px; margin-bottom: 15px;">
+        💡 Your last configuration will be automatically restored
+      </p>
+      
+      <div class="form-group">
+        <label>Local Folder:</label>
+        <input type="text" id="syncPath" placeholder="Select folder to sync" readonly>
+        <button id="selectFolderBtn" class="btn">Browse</button>
+      </div>
+      <p style="color: #666; font-size: 12px; margin-left: 135px; margin-top: -10px;">
+        ⚠️ Avoid syncing folders with many files (like projects with node_modules). Common build folders are auto-excluded.
+      </p>
+
+      <div class="form-group">
+        <label>Max Concurrent Uploads:</label>
+        <select id="maxConcurrent" style="flex: 1; padding: 10px; border: 1px solid #ddd; border-radius: 4px;">
+          <option value="1">1 (Slowest, most stable)</option>
+          <option value="2">2</option>
+          <option value="3" selected>3 (Recommended)</option>
+          <option value="5">5</option>
+          <option value="10">10</option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label>Conflict Resolution:</label>
+        <select id="conflictResolution" style="flex: 1; padding: 10px; border: 1px solid #ddd; border-radius: 4px;">
+          <option value="keep-both" selected>Keep Both Files (Recommended)</option>
+          <option value="local-wins">Local Overwrites Drive</option>
+          <option value="drive-wins">Drive Overwrites Local</option>
+          <option value="ask">Ask Me Each Time</option>
+        </select>
+      </div>
+      <p style="color: #666; font-size: 12px; margin-left: 135px; margin-top: -10px;">
+        How to handle files modified in both locations
+      </p>
+
+      <div class="form-group">
+        <label>Drive Folder:</label>
+        <select id="driveFolderSelect" style="flex: 1; padding: 10px; border: 1px solid #ddd; border-radius: 4px;">
+          <option value="">-- Select existing or create new --</option>
+        </select>
+        <button id="loadDriveFoldersBtn" class="btn">Refresh</button>
+      </div>
+
+      <div class="form-group">
+        <label>Or Create New:</label>
+        <input type="text" id="driveFolderName" placeholder="e.g., MySync or Projects/ChatApp">
+        <button id="createDriveFolderBtn" class="btn">Create</button>
+      </div>
+      <p style="color: #666; font-size: 12px; margin-left: 135px; margin-top: -10px;">
+        Use "/" to create nested folders (e.g., Projects/ChatApp)
+      </p>
+      
+      <div id="driveFolderStatus" class="status" style="display: none;"></div>
+      
+      <button id="syncToggleBtn" class="btn btn-success" disabled>Start Sync</button>
+    </div>
+
+    <div id="status-section" class="section">
+      <h2>Sync Status</h2>
+      
+      <div style="margin-bottom: 15px; padding: 10px; background: #f9f9f9; border-radius: 4px;">
+        <label style="display: flex; align-items: center; cursor: pointer;">
+          <input type="checkbox" id="autoStartCheckbox" style="margin-right: 10px; width: 18px; height: 18px; cursor: pointer;">
+          <span style="font-weight: 500;">Launch app on system startup</span>
+        </label>
+        <p style="color: #666; font-size: 12px; margin: 5px 0 0 28px;">
+          App will start automatically when you log in to your computer
+        </p>
+      </div>
+      
+      <div id="syncStatus" class="status-box">
+        <p>Not syncing</p>
+      </div>
+      
+      <div id="progressSection" style="display: none; margin-bottom: 15px;">
+        <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
+          <span id="progressText">Syncing files...</span>
+          <span id="progressCount">0 / 0</span>
+        </div>
+        <div style="width: 100%; background: #e0e0e0; border-radius: 4px; height: 20px; overflow: hidden;">
+          <div id="progressBar" style="width: 0%; background: #4285f4; height: 100%; transition: width 0.3s;"></div>
+        </div>
+      </div>
+
+      <div id="currentFileSection" style="display: none; margin-bottom: 15px; padding: 10px; background: #f0f8ff; border-radius: 4px;">
+        <div style="font-weight: 500; margin-bottom: 5px;">Currently syncing:</div>
+        <div id="currentFileName" style="font-family: monospace; font-size: 12px; color: #333;"></div>
+      </div>
+
+      <div style="margin-bottom: 10px;">
+        <button id="downloadLogBtn" class="btn" style="font-size: 13px; padding: 8px 15px;">
+          📥 Download Sync Log
+        </button>
+        <span style="color: #666; font-size: 12px; margin-left: 10px;">
+          Save log for troubleshooting
+        </span>
+      </div>
+
+      <div id="syncLog" class="log-box"></div>
+    </div>
+  </div>
+
+  <!-- Conflict Resolution Dialog -->
+  <div id="conflictDialog" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 1000; align-items: center; justify-content: center;">
+    <div style="background: white; padding: 30px; border-radius: 8px; max-width: 600px; width: 90%; box-shadow: 0 4px 20px rgba(0,0,0,0.3);">
+      <h2 style="margin-top: 0; color: #d32f2f;">⚠️ Conflict Detected</h2>
+      
+      <div style="background: #f5f5f5; padding: 15px; border-radius: 4px; margin-bottom: 20px;">
+        <div style="font-weight: 500; margin-bottom: 10px; word-break: break-all;">
+          File: <span id="conflictFileName" style="color: #1976d2;"></span>
+        </div>
+        
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-top: 15px;">
+          <div style="padding: 10px; background: white; border-radius: 4px;">
+            <div style="font-weight: 500; color: #2e7d32; margin-bottom: 5px;">📁 Local Version</div>
+            <div style="font-size: 12px; color: #666;">
+              <div>Modified: <span id="conflictLocalTime"></span></div>
+              <div>Size: <span id="conflictLocalSize"></span></div>
+            </div>
+          </div>
+          
+          <div style="padding: 10px; background: white; border-radius: 4px;">
+            <div style="font-weight: 500; color: #1976d2; margin-bottom: 5px;">☁️ Drive Version</div>
+            <div style="font-size: 12px; color: #666;">
+              <div>Modified: <span id="conflictDriveTime"></span></div>
+              <div>Size: <span id="conflictDriveSize"></span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <p style="color: #666; margin-bottom: 20px;">
+        Both versions have been modified. How would you like to resolve this conflict?
+      </p>
+      
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 15px;">
+        <button id="conflictBtnLocal" class="btn" style="background: #2e7d32; color: white; padding: 12px;">
+          Keep Local
+        </button>
+        <button id="conflictBtnDrive" class="btn" style="background: #1976d2; color: white; padding: 12px;">
+          Keep Drive
+        </button>
+      </div>
+      
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+        <button id="conflictBtnBoth" class="btn" style="background: #f57c00; color: white; padding: 12px;">
+          Keep Both
+        </button>
+        <button id="conflictBtnSkip" class="btn" style="background: #757575; color: white; padding: 12px;">
+          Skip This File
+        </button>
+      </div>
+      
+      <div style="margin-top: 15px; padding: 10px; background: #fff3cd; border-radius: 4px; font-size: 12px; color: #856404;">
+        <strong>Tip:</strong> "Keep Both" will rename your local file and keep both versions.
+      </div>
+    </div>
+  </div>
+
+  <script src="renderer.js"></script>
+</body>
+</html>

@@ -1,0 +1,34 @@
+# Directories to ignore during sync
+node_modules/
+dist/
+build/
+.git/
+.vscode/
+.idea/
+target/
+__pycache__/
+*.pyc
+venv/
+env/
+.env
+.DS_Store
+Thumbs.db
+*.log
+*.tmp
+*.temp
+coverage/
+.next/
+out/
+.cache/
+tmp/
+temp/
+*.swp
+*.swo
+.angular/
+.nuxt/
+.output/
+vendor/
+
+# Sync state files (new chunked format)
+.gdrive-sync/
+.gdrive-sync-state.json

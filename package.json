@@ -1,0 +1,99 @@
+{
+  "name": "gdrive-sync",
+  "version": "1.0.0",
+  "description": "Google Drive sync desktop app",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron . --no-sandbox --disable-gpu-vsync",
+    "dev": "NODE_ENV=development electron . --dev --no-sandbox --disable-gpu-vsync",
+    "build": "electron-builder",
+    "build:win": "electron-builder --win",
+    "build:mac": "electron-builder --mac",
+    "build:linux": "electron-builder --linux",
+    "postinstall": "electron-builder install-app-deps"
+  },
+  "keywords": ["electron", "google-drive", "sync"],
+  "author": {
+    "name": "Rajan Kumar",
+    "email": "rajankumar471@gmail.com"
+  },
+  "homepage": "https://github.com/rajan471/GDrive-Sync",
+  "license": "MIT",
+  "build": {
+    "appId": "com.gdrivesync.app",
+    "productName": "GDrive Sync",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "**/*",
+      "!**/*.md",
+      "!.gitignore",
+      "!dist",
+      "!node_modules",
+      "node_modules/googleapis/**/*",
+      "node_modules/chokidar/**/*",
+      "node_modules/express/**/*",
+      "node_modules/auto-launch/**/*"
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": ["x64"]
+        }
+      ],
+      "icon": "AppLogo.png"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "GDrive Sync",
+      "installerIcon": "AppLogo.png",
+      "uninstallerIcon": "AppLogo.png"
+    },
+    "mac": {
+      "target": ["dmg"],
+      "icon": "AppLogo.png",
+      "category": "public.app-category.productivity"
+    },
+    "dmg": {
+      "contents": [
+        {
+          "x": 130,
+          "y": 220
+        },
+        {
+          "x": 410,
+          "y": 220,
+          "type": "link",
+          "path": "/Applications"
+        }
+      ]
+    },
+    "linux": {
+      "target": ["deb"],
+      "icon": "AppLogo.png",
+      "category": "Utility",
+      "maintainer": "rajankumar471@gmail.com",
+      "desktop": {
+        "Name": "Google Drive Sync",
+        "Comment": "Sync files with Google Drive",
+        "Categories": "Utility;FileTransfer;",
+        "StartupNotify": "true"
+      }
+    }
+  },
+  "devDependencies": {
+    "electron": "^28.0.0",
+    "electron-builder": "^24.9.1"
+  },
+  "dependencies": {
+    "googleapis": "^128.0.0",
+    "chokidar": "^3.5.3",
+    "express": "^4.18.2",
+    "auto-launch": "^5.0.6"
+  }
+}
