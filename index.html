@@ -1,186 +1,344 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; img-src 'self' data:">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Google Drive Sync</title>
-  <link rel="stylesheet" href="styles.css">
+  <script src="assets/tailwind-3.4.17.js"></script>
   <script src="src/dbManager.js"></script>
+  <script>
+    tailwind.config = {
+      darkMode: "class",
+      theme: {
+        extend: {
+          colors: {
+            primary: "#1a73e8",
+            "primary-dark": "#1557b0",
+          },
+          fontFamily: {
+            sans: ['-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'sans-serif'],
+          },
+        },
+      },
+    };
+  </script>
+  <style>
+    ::-webkit-scrollbar {
+      width: 8px;
+      height: 8px;
+    }
+    ::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #cbd5e1;
+      border-radius: 4px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #94a3b8;
+    }
+    .dark ::-webkit-scrollbar-thumb {
+      background: #4b5563;
+    }
+    .dark ::-webkit-scrollbar-thumb:hover {
+      background: #6b7280;
+    }
+    .tree-line::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0.8rem;
+      bottom: 50%;
+      width: 1px;
+      background-color: #cbd5e1;
+    }
+    .tree-line::after {
+      content: '';
+      position: absolute;
+      top: 50%;
+      left: 0.8rem;
+      width: 1rem;
+      height: 1px;
+      background-color: #cbd5e1;
+    }
+    .dark .tree-line::before,
+    .dark .tree-line::after {
+      background-color: #4b5563;
+    }
+  </style>
 </head>
-<body>
-  <div class="container">
-    <h1>Google Drive Sync</h1>
+<body class="bg-gray-100 dark:bg-black font-sans text-gray-800 dark:text-gray-100 min-h-screen flex items-center justify-center p-4">
+  <div class="w-full max-w-6xl h-auto min-h-[700px] bg-white dark:bg-gray-900 rounded-3xl shadow-lg overflow-hidden flex flex-col md:flex-row border border-gray-200 dark:border-gray-800">
     
-    <div id="auth-section" class="section">
-      <h2>1. Authentication</h2>
-      <p style="color: #666; margin-bottom: 15px;">Click the button below to sign in with your Google account</p>
-      <button id="authBtn" class="btn btn-primary">Sign in with Google</button>
-      <div id="authStatus" class="status"></div>
-      <div id="authUrlBox" style="display: none; margin-top: 15px; padding: 15px; background: #f0f0f0; border-radius: 4px;">
-        <p style="margin-bottom: 10px; font-weight: 500;">If browser doesn't open, click this link:</p>
-        <a id="authUrlLink" href="#" target="_blank" style="color: #4285f4; word-break: break-all; font-size: 12px;"></a>
-      </div>
-    </div>
-
-    <div id="sync-section" class="section" style="display: none;">
-      <h2>2. Configure Sync</h2>
-      <p style="color: #666; font-size: 13px; margin-bottom: 15px;">
-        💡 Your last configuration will be automatically restored
-      </p>
-      
-      <div class="form-group">
-        <label>Local Folder:</label>
-        <input type="text" id="syncPath" placeholder="Select folder to sync" readonly>
-        <button id="selectFolderBtn" class="btn">Browse</button>
-      </div>
-      <p style="color: #666; font-size: 12px; margin-left: 135px; margin-top: -10px;">
-        ⚠️ Avoid syncing folders with many files (like projects with node_modules). Common build folders are auto-excluded.
-      </p>
-
-      <div class="form-group">
-        <label>Max Concurrent Uploads:</label>
-        <select id="maxConcurrent" style="flex: 1; padding: 10px; border: 1px solid #ddd; border-radius: 4px;">
-          <option value="1">1 (Slowest, most stable)</option>
-          <option value="2">2</option>
-          <option value="3" selected>3 (Recommended)</option>
-          <option value="5">5</option>
-          <option value="10">10</option>
-        </select>
-      </div>
-
-      <div class="form-group">
-        <label>Conflict Resolution:</label>
-        <select id="conflictResolution" style="flex: 1; padding: 10px; border: 1px solid #ddd; border-radius: 4px;">
-          <option value="keep-both" selected>Keep Both Files (Recommended)</option>
-          <option value="local-wins">Local Overwrites Drive</option>
-          <option value="drive-wins">Drive Overwrites Local</option>
-          <option value="ask">Ask Me Each Time</option>
-        </select>
-      </div>
-      <p style="color: #666; font-size: 12px; margin-left: 135px; margin-top: -10px;">
-        How to handle files modified in both locations
-      </p>
-
-      <div class="form-group">
-        <label>Drive Folder:</label>
-        <select id="driveFolderSelect" style="flex: 1; padding: 10px; border: 1px solid #ddd; border-radius: 4px;">
-          <option value="">-- Select existing or create new --</option>
-        </select>
-        <button id="loadDriveFoldersBtn" class="btn">Refresh</button>
-      </div>
-
-      <div class="form-group">
-        <label>Or Create New:</label>
-        <input type="text" id="driveFolderName" placeholder="e.g., MySync or Projects/ChatApp">
-        <button id="createDriveFolderBtn" class="btn">Create</button>
-      </div>
-      <p style="color: #666; font-size: 12px; margin-left: 135px; margin-top: -10px;">
-        Use "/" to create nested folders (e.g., Projects/ChatApp)
-      </p>
-      
-      <div id="driveFolderStatus" class="status" style="display: none;"></div>
-      
-      <button id="syncToggleBtn" class="btn btn-success" disabled>Start Sync</button>
-    </div>
-
-    <div id="status-section" class="section">
-      <h2>Sync Status</h2>
-      
-      <div style="margin-bottom: 15px; padding: 10px; background: #f9f9f9; border-radius: 4px;">
-        <label style="display: flex; align-items: center; cursor: pointer;">
-          <input type="checkbox" id="autoStartCheckbox" style="margin-right: 10px; width: 18px; height: 18px; cursor: pointer;">
-          <span style="font-weight: 500;">Launch app on system startup</span>
-        </label>
-        <p style="color: #666; font-size: 12px; margin: 5px 0 0 28px;">
-          App will start automatically when you log in to your computer
-        </p>
-      </div>
-      
-      <div id="syncStatus" class="status-box">
-        <p>Not syncing</p>
-      </div>
-      
-      <div id="progressSection" style="display: none; margin-bottom: 15px;">
-        <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
-          <span id="progressText">Syncing files...</span>
-          <span id="progressCount">0 / 0</span>
+    <!-- Sidebar -->
+    <aside class="w-full md:w-[400px] bg-gray-50 dark:bg-gray-800 p-8 flex flex-col gap-6 border-r border-gray-200 dark:border-gray-700 overflow-y-auto">
+      <div class="flex items-center justify-between gap-3 mb-4">
+        <div class="flex items-center gap-3">
+          <img src="AppLogo.png" alt="GDrive Logo" class="w-16 h-16">
+          <h1 class="font-semibold text-lg tracking-tight text-gray-900 dark:text-white">GDrive Sync</h1>
         </div>
-        <div style="width: 100%; background: #e0e0e0; border-radius: 4px; height: 20px; overflow: hidden;">
-          <div id="progressBar" style="width: 0%; background: #4285f4; height: 100%; transition: width 0.3s;"></div>
-        </div>
-      </div>
-
-      <div id="currentFileSection" style="display: none; margin-bottom: 15px; padding: 10px; background: #f0f8ff; border-radius: 4px;">
-        <div style="font-weight: 500; margin-bottom: 5px;">Currently syncing:</div>
-        <div id="currentFileName" style="font-family: monospace; font-size: 12px; color: #333;"></div>
-      </div>
-
-      <div style="margin-bottom: 10px;">
-        <button id="downloadLogBtn" class="btn" style="font-size: 13px; padding: 8px 15px;">
-          📥 Download Sync Log
+        <button id="syncToggleBtn" class="bg-primary hover:bg-primary-dark text-white px-4 py-2 rounded-lg text-sm font-medium shadow-md transition-all disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap" disabled>
+          Start Sync
         </button>
-        <span style="color: #666; font-size: 12px; margin-left: 10px;">
-          Save log for troubleshooting
-        </span>
       </div>
 
-      <div id="syncLog" class="log-box"></div>
-    </div>
-  </div>
-
-  <!-- Conflict Resolution Dialog -->
-  <div id="conflictDialog" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 1000; align-items: center; justify-content: center;">
-    <div style="background: white; padding: 30px; border-radius: 8px; max-width: 600px; width: 90%; box-shadow: 0 4px 20px rgba(0,0,0,0.3);">
-      <h2 style="margin-top: 0; color: #d32f2f;">⚠️ Conflict Detected</h2>
-      
-      <div style="background: #f5f5f5; padding: 15px; border-radius: 4px; margin-bottom: 20px;">
-        <div style="font-weight: 500; margin-bottom: 10px; word-break: break-all;">
-          File: <span id="conflictFileName" style="color: #1976d2;"></span>
+      <!-- Auth Section -->
+      <div id="auth-section" class="mb-5">
+        <button id="authBtn" class="w-full bg-primary hover:bg-primary-dark text-white px-6 py-3 rounded-xl font-medium shadow-lg transition-all">
+          Sign in with Google
+        </button>
+        <div id="authStatus" class="mt-3"></div>
+        <div id="authUrlBox" class="mt-3 p-3 bg-gray-100 dark:bg-gray-700 rounded-lg" style="display: none;">
+          <p class="text-xs text-gray-600 dark:text-gray-300 mb-2">If browser doesn't open, click this link:</p>
+          <a id="authUrlLink" href="#" target="_blank" class="text-xs text-primary break-all"></a>
         </div>
-        
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-top: 15px;">
-          <div style="padding: 10px; background: white; border-radius: 4px;">
-            <div style="font-weight: 500; color: #2e7d32; margin-bottom: 5px;">📁 Local Version</div>
-            <div style="font-size: 12px; color: #666;">
-              <div>Modified: <span id="conflictLocalTime"></span></div>
-              <div>Size: <span id="conflictLocalSize"></span></div>
+      </div>
+
+      <!-- Configuration Section -->
+      <div id="sync-section">
+        <h2 class="text-xl font-bold text-gray-900 dark:text-white mb-6">Authentication & Configuration</h2>
+
+        <!-- Local Folder -->
+        <div class="mb-6">
+          <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Local Sync Folder</label>
+          <div class="flex gap-2">
+            <input id="syncPath" type="text" readonly class="flex-1 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm text-gray-700 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-primary" placeholder="C:\Users\JaneDoe\Google Drive">
+            <button id="selectFolderBtn" class="bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 px-4 py-2 rounded-lg text-sm font-medium hover:bg-gray-50 dark:hover:bg-gray-700">
+              Browse
+            </button>
+          </div>
+        </div>
+
+        <!-- Max Concurrent -->
+        <div class="mb-6">
+          <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Max Concurrent Uploads</label>
+          <select id="maxConcurrent" class="block w-full bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 py-2.5 px-3 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary">
+            <option value="1">1 file</option>
+            <option value="2">2 files</option>
+            <option value="3" selected>3 files</option>
+            <option value="5">5 files</option>
+            <option value="10">10 files</option>
+          </select>
+        </div>
+
+        <!-- Conflict Resolution -->
+        <div class="mb-6">
+          <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Conflict Resolution</label>
+          <select id="conflictResolution" class="block w-full bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 py-2.5 px-3 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary">
+            <option value="ask" selected>Ask every time</option>
+            <option value="keep-both">Keep both files</option>
+            <option value="local-wins">Local overwrites Drive</option>
+            <option value="drive-wins">Drive overwrites local</option>
+          </select>
+        </div>
+
+        <!-- Drive Folder -->
+        <div class="mb-6">
+          <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Google Drive Destination Folder</label>
+          
+          <!-- Custom Dropdown -->
+          <div class="relative">
+            <button id="driveFolderDropdownBtn" type="button" class="w-full bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-lg px-4 py-2.5 text-left text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-primary transition-all flex items-center justify-between">
+              <span id="driveFolderSelectedText" class="truncate">-- Select existing or create new --</span>
+              <svg class="w-5 h-5 text-gray-400 transition-transform" id="driveFolderChevron" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+              </svg>
+            </button>
+            
+            <!-- Dropdown Menu -->
+            <div id="driveFolderDropdownMenu" class="hidden absolute z-10 w-full mt-1 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+              <div class="py-1">
+                <div class="px-4 py-2 text-xs text-gray-500 dark:text-gray-400 font-medium">SELECT FOLDER</div>
+                <div id="driveFolderOptions">
+                  <!-- Options will be populated here -->
+                </div>
+              </div>
             </div>
+            
+            <!-- Hidden select for form compatibility -->
+            <select id="driveFolderSelect" class="hidden">
+              <option value="">-- Select existing or create new --</option>
+            </select>
           </div>
           
-          <div style="padding: 10px; background: white; border-radius: 4px;">
-            <div style="font-weight: 500; color: #1976d2; margin-bottom: 5px;">☁️ Drive Version</div>
-            <div style="font-size: 12px; color: #666;">
-              <div>Modified: <span id="conflictDriveTime"></span></div>
-              <div>Size: <span id="conflictDriveSize"></span></div>
+          <button id="loadDriveFoldersBtn" class="mt-2 text-primary text-sm hover:underline">↻ Refresh</button>
+          
+          <div class="my-3 text-center text-xs font-semibold text-gray-500">OR CREATE NEW</div>
+          
+          <div class="flex gap-2">
+            <input id="driveFolderName" type="text" class="flex-1 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm" placeholder="e.g., MySync">
+            <button id="createDriveFolderBtn" class="bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 px-4 py-2 rounded-lg text-sm font-medium hover:bg-gray-50 dark:hover:bg-gray-700">
+              Create
+            </button>
+          </div>
+          <div id="driveFolderStatus" class="mt-2"></div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="flex-1 bg-white dark:bg-gray-900 p-8 md:p-12 overflow-y-auto">
+      <div class="flex justify-between items-center mb-10">
+        <h2 class="text-2xl font-bold text-gray-900 dark:text-white">Sync Status</h2>
+        <div id="syncStatusBadge" class="inline-flex items-center gap-2 px-3 py-1.5 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-400 rounded-full text-sm font-semibold">
+          <span class="relative flex h-2.5 w-2.5">
+            <span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-gray-400"></span>
+          </span>
+          Idle
+        </div>
+      </div>
+
+      <!-- Progress Section -->
+      <div id="progressSection" class="mb-12" style="display: none;">
+        <div class="flex justify-between items-center mb-3">
+          <span class="text-sm font-medium text-gray-500 dark:text-gray-400">Total Progress</span>
+          <span id="progressPercentage" class="text-4xl font-bold text-gray-900 dark:text-white">0%</span>
+        </div>
+        <div class="h-3 w-full bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+          <div id="progressBar" class="h-full bg-blue-500 rounded-full transition-all duration-300" style="width: 0%"></div>
+        </div>
+        <p id="progressText" class="mt-3 text-sm text-gray-500 dark:text-gray-400 flex items-center gap-2">
+          <svg class="w-4 h-4 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+          </svg>
+          <span>Syncing (0%) - 0 of 0 files</span>
+        </p>
+      </div>
+
+      <!-- Currently Syncing -->
+      <div id="currentlySyncingSection" class="mb-12" style="display: none;">
+        <h3 class="text-xl font-bold text-gray-900 dark:text-white mb-6">Currently syncing</h3>
+        <div id="currentFilesList" class="space-y-3 max-h-[280px] overflow-y-hidden pr-2">
+          <!-- Files will be dynamically added here -->
+        </div>
+      </div>
+
+      <!-- Auto-start -->
+      <div class="mb-8">
+        <h3 class="text-base font-semibold text-gray-900 dark:text-white mb-3">Auto-start on system boot</h3>
+        <div class="flex items-center gap-3">
+          <label class="flex items-center cursor-pointer relative">
+            <input id="autoStartCheckbox" type="checkbox" class="sr-only peer">
+            <div class="w-11 h-6 bg-gray-200 peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-primary"></div>
+            <span id="autoStartStatus" class="ml-3 text-sm font-medium text-gray-900 dark:text-gray-300">Off</span>
+          </label>
+        </div>
+      </div>
+
+      <!-- Download Log Button -->
+      <div class="mb-8">
+        <button id="downloadLogBtn" class="bg-primary hover:bg-primary-dark text-white px-6 py-3 rounded-xl font-medium transition-all flex items-center gap-2 shadow-md">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 19l3 3m0 0l3-3m-3 3V10"></path>
+          </svg>
+          Download Sync Log
+        </button>
+      </div>
+
+      <!-- Activity Log (Hidden) -->
+      <div id="syncLog" class="hidden"></div>
+    </main>
+  </div>
+
+  <!-- Conflict Dialog -->
+  <div id="conflictDialog" class="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4" style="display: none;">
+    <div class="w-full max-w-2xl bg-white dark:bg-gray-800 rounded-xl shadow-2xl overflow-hidden animate-in">
+      <!-- Header -->
+      <div class="p-6 text-center border-b border-gray-100 dark:border-gray-700">
+        <div class="inline-flex items-center gap-3">
+          <span class="text-4xl">⚠️</span>
+          <h1 class="text-2xl font-bold text-gray-900 dark:text-white">Conflict Detected</h1>
+        </div>
+        <p class="mt-2 text-gray-500 dark:text-gray-400">Two versions of the same file were modified. Choose which one to keep.</p>
+      </div>
+
+      <!-- Content -->
+      <div class="p-6 space-y-6">
+        <!-- File Comparison -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <!-- Local Version -->
+          <div class="border-2 border-green-500/30 dark:border-green-500/20 rounded-xl overflow-hidden bg-white dark:bg-gray-800 transition-all hover:shadow-md">
+            <div class="bg-green-600 px-4 py-2 flex items-center gap-2">
+              <span class="text-white text-lg">✓</span>
+              <span class="text-white font-semibold text-sm">Local Version</span>
+            </div>
+            <div class="p-4 space-y-4">
+              <div class="flex items-start gap-3">
+                <div class="p-2 bg-blue-50 dark:bg-blue-900/30 rounded-lg">
+                  <span class="text-blue-500 text-xl">📄</span>
+                </div>
+                <div class="flex-1 min-w-0">
+                  <h3 id="conflictFileNameLocal" class="font-bold text-gray-900 dark:text-white text-sm break-all"></h3>
+                  <span class="inline-block mt-1 px-2 py-0.5 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 text-[10px] font-medium rounded uppercase">On This Computer</span>
+                </div>
+              </div>
+              <div class="pt-2 space-y-1 border-t border-gray-100 dark:border-gray-700">
+                <div class="flex justify-between text-xs">
+                  <span class="text-gray-500 dark:text-gray-400">Modified:</span>
+                  <span id="conflictLocalTime" class="text-gray-900 dark:text-gray-200 font-medium"></span>
+                </div>
+                <div class="flex justify-between text-xs">
+                  <span class="text-gray-500 dark:text-gray-400">Size:</span>
+                  <span id="conflictLocalSize" class="text-gray-900 dark:text-gray-200 font-medium"></span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Drive Version -->
+          <div class="border-2 border-blue-500/30 dark:border-blue-500/20 rounded-xl overflow-hidden bg-white dark:bg-gray-800 transition-all hover:shadow-md">
+            <div class="bg-blue-600 px-4 py-2 flex items-center gap-2">
+              <span class="text-white text-lg">☁️</span>
+              <span class="text-white font-semibold text-sm">Drive Version</span>
+            </div>
+            <div class="p-4 space-y-4">
+              <div class="flex items-start gap-3">
+                <div class="p-2 bg-blue-50 dark:bg-blue-900/30 rounded-lg">
+                  <span class="text-blue-500 text-xl">📄</span>
+                </div>
+                <div class="flex-1 min-w-0">
+                  <h3 id="conflictFileNameDrive" class="font-bold text-gray-900 dark:text-white text-sm break-all"></h3>
+                  <span class="inline-block mt-1 px-2 py-0.5 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 text-[10px] font-medium rounded uppercase">In Google Drive</span>
+                </div>
+              </div>
+              <div class="pt-2 space-y-1 border-t border-gray-100 dark:border-gray-700">
+                <div class="flex justify-between text-xs">
+                  <span class="text-gray-500 dark:text-gray-400">Modified:</span>
+                  <span id="conflictDriveTime" class="text-gray-900 dark:text-gray-200 font-medium"></span>
+                </div>
+                <div class="flex justify-between text-xs">
+                  <span class="text-gray-500 dark:text-gray-400">Size:</span>
+                  <span id="conflictDriveSize" class="text-gray-900 dark:text-gray-200 font-medium"></span>
+                </div>
+              </div>
             </div>
           </div>
         </div>
-      </div>
-      
-      <p style="color: #666; margin-bottom: 20px;">
-        Both versions have been modified. How would you like to resolve this conflict?
-      </p>
-      
-      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 15px;">
-        <button id="conflictBtnLocal" class="btn" style="background: #2e7d32; color: white; padding: 12px;">
-          Keep Local
-        </button>
-        <button id="conflictBtnDrive" class="btn" style="background: #1976d2; color: white; padding: 12px;">
-          Keep Drive
-        </button>
-      </div>
-      
-      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
-        <button id="conflictBtnBoth" class="btn" style="background: #f57c00; color: white; padding: 12px;">
-          Keep Both
-        </button>
-        <button id="conflictBtnSkip" class="btn" style="background: #757575; color: white; padding: 12px;">
-          Skip This File
-        </button>
-      </div>
-      
-      <div style="margin-top: 15px; padding: 10px; background: #fff3cd; border-radius: 4px; font-size: 12px; color: #856404;">
-        <strong>Tip:</strong> "Keep Both" will rename your local file and keep both versions.
+
+        <!-- Action Buttons -->
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <button id="conflictBtnLocal" class="bg-green-600 hover:bg-green-700 text-white py-2.5 px-4 rounded-lg font-semibold text-sm transition-colors shadow-sm focus:ring-2 focus:ring-green-500/50 outline-none">
+            Keep Local
+          </button>
+          <button id="conflictBtnDrive" class="bg-blue-600 hover:bg-blue-700 text-white py-2.5 px-4 rounded-lg font-semibold text-sm transition-colors shadow-sm focus:ring-2 focus:ring-blue-500/50 outline-none">
+            Keep Drive
+          </button>
+          <button id="conflictBtnBoth" class="bg-gray-700 hover:bg-gray-800 dark:bg-gray-600 dark:hover:bg-gray-500 text-white py-2.5 px-4 rounded-lg font-semibold text-sm transition-colors shadow-sm focus:ring-2 focus:ring-gray-400 outline-none">
+            Keep Both
+          </button>
+          <button id="conflictBtnSkip" class="bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 py-2.5 px-4 rounded-lg font-semibold text-sm transition-colors focus:ring-2 focus:ring-gray-300 outline-none">
+            Skip
+          </button>
+        </div>
+
+        <!-- Tip -->
+        <div class="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800/50 rounded-lg p-4 flex items-start gap-3">
+          <span class="text-amber-600 text-lg">💡</span>
+          <p class="text-xs text-amber-800 dark:text-amber-200 leading-relaxed">
+            <span class="font-bold">Tip:</span> 'Keep Both' will save the local file with a timestamp suffix and download the Drive version.
+          </p>
+        </div>
       </div>
     </div>
   </div>

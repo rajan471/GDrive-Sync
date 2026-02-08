@@ -219,7 +219,7 @@ class SyncManager {
     try {
       // Get all files from Drive
       const driveFiles = await this.getAllDriveFiles(this.driveFolderId);
-      const trackedFiles = this.fileTracker.getAllTrackedFiles();
+      const trackedFiles = await this.fileTracker.getAllTrackedFiles();
       
       let changesDetected = 0;
       
@@ -229,7 +229,7 @@ class SyncManager {
           continue; // Skip Google Workspace files
         }
         
-        const tracked = this.fileTracker.getTrackedFile(driveFile.path);
+        const tracked = await this.fileTracker.getTrackedFile(driveFile.path);
         const localFilePath = path.join(this.localPath, driveFile.path);
         
         if (!tracked) {
@@ -1278,7 +1278,7 @@ class SyncManager {
       const relativePath = path.relative(this.localPath, filePath);
       
       // Check if already tracked
-      const tracked = this.fileTracker.getTrackedFile(relativePath);
+      const tracked = await this.fileTracker.getTrackedFile(relativePath);
       if (tracked) {
         // File already exists, treat as change
         await this.handleLocalChange(filePath);
@@ -1309,7 +1309,7 @@ class SyncManager {
         return; // No actual change
       }
 
-      const tracked = this.fileTracker.getTrackedFile(relativePath);
+      const tracked = await this.fileTracker.getTrackedFile(relativePath);
       
       if (!tracked) {
         // File not tracked, treat as new
@@ -1348,7 +1348,7 @@ class SyncManager {
   async handleLocalDelete(filePath) {
     try {
       const relativePath = path.relative(this.localPath, filePath);
-      const tracked = this.fileTracker.getTrackedFile(relativePath);
+      const tracked = await this.fileTracker.getTrackedFile(relativePath);
       
       if (!tracked) return;
 
@@ -1387,7 +1387,7 @@ class SyncManager {
     return {
       syncing: this.syncing,
       localPath: this.localPath,
-      fileCount: this.fileTracker ? this.fileTracker.getAllTrackedFiles().length : 0,
+      fileCount: this.fileTracker ? Object.keys(this.fileTracker.state.files).length : 0,
       lastSync: this.fileTracker ? this.fileTracker.state.lastSync : null,
       queueLength: this.syncQueue.length,
       activeSyncs: this.activeSyncs,

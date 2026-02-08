@@ -86,6 +86,9 @@ function createWindow() {
     }
   });
 
+  // Remove menu bar completely
+  mainWindow.setMenu(null);
+
   mainWindow.loadFile('index.html');
 }
 

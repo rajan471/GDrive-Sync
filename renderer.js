@@ -72,6 +72,11 @@ const syncSection = document.getElementById('sync-section');
 const selectFolderBtn = document.getElementById('selectFolderBtn');
 const syncPathInput = document.getElementById('syncPath');
 const driveFolderSelect = document.getElementById('driveFolderSelect');
+const driveFolderDropdownBtn = document.getElementById('driveFolderDropdownBtn');
+const driveFolderDropdownMenu = document.getElementById('driveFolderDropdownMenu');
+const driveFolderChevron = document.getElementById('driveFolderChevron');
+const driveFolderSelectedText = document.getElementById('driveFolderSelectedText');
+const driveFolderOptions = document.getElementById('driveFolderOptions');
 const loadDriveFoldersBtn = document.getElementById('loadDriveFoldersBtn');
 const driveFolderNameInput = document.getElementById('driveFolderName');
 const createDriveFolderBtn = document.getElementById('createDriveFolderBtn');
@@ -83,6 +88,28 @@ const syncStatusDiv = document.getElementById('syncStatus');
 const syncLog = document.getElementById('syncLog');
 const autoStartCheckbox = document.getElementById('autoStartCheckbox');
 const downloadLogBtn = document.getElementById('downloadLogBtn');
+
+// Custom Dropdown Toggle
+if (driveFolderDropdownBtn) {
+  driveFolderDropdownBtn.addEventListener('click', () => {
+    const isHidden = driveFolderDropdownMenu.classList.contains('hidden');
+    if (isHidden) {
+      driveFolderDropdownMenu.classList.remove('hidden');
+      driveFolderChevron.style.transform = 'rotate(180deg)';
+    } else {
+      driveFolderDropdownMenu.classList.add('hidden');
+      driveFolderChevron.style.transform = 'rotate(0deg)';
+    }
+  });
+
+  // Close dropdown when clicking outside
+  document.addEventListener('click', (e) => {
+    if (!driveFolderDropdownBtn.contains(e.target) && !driveFolderDropdownMenu.contains(e.target)) {
+      driveFolderDropdownMenu.classList.add('hidden');
+      driveFolderChevron.style.transform = 'rotate(0deg)';
+    }
+  });
+}
 
 // Set up listeners first
 // Listen for auth URL
@@ -166,7 +193,6 @@ window.addEventListener('DOMContentLoaded', async () => {
     if (result.success) {
       showStatus(authStatus, 'Authenticated with saved token!', 'success');
       authBtn.style.display = 'none';
-      syncSection.style.display = 'block';
       addLog('Authenticated with saved credentials', 'success');
       await loadDriveFolders();
       return;
@@ -183,13 +209,11 @@ window.addEventListener('DOMContentLoaded', async () => {
   if (result.success && result.hadTokens) {
     showStatus(authStatus, 'Already authenticated!', 'success');
     authBtn.style.display = 'none';
-    syncSection.style.display = 'block';
     addLog('Authenticated with saved credentials', 'success');
     await loadDriveFolders();
   } else if (result.success && !result.hadTokens) {
     showStatus(authStatus, 'Authentication successful!', 'success');
     authBtn.style.display = 'none';
-    syncSection.style.display = 'block';
     addLog('Authentication completed', 'success');
     await loadDriveFolders();
   } else if (!result.success) {
@@ -200,10 +224,12 @@ window.addEventListener('DOMContentLoaded', async () => {
 // Auto-start checkbox handler
 autoStartCheckbox.addEventListener('change', async (e) => {
   const enabled = e.target.checked;
+  const statusSpan = document.getElementById('autoStartStatus');
   const result = await window.electronAPI.setAutoStart(enabled);
   
   if (result.success) {
     addLog(`Auto-start ${enabled ? 'enabled' : 'disabled'}`, 'success');
+    statusSpan.textContent = enabled ? 'On' : 'Off';
   } else {
     addLog(`Failed to ${enabled ? 'enable' : 'disable'} auto-start: ${result.error}`, 'error');
     // Revert checkbox on error
@@ -226,7 +252,6 @@ authBtn.addEventListener('click', async () => {
     showStatus(authStatus, message, 'success');
     document.getElementById('authUrlBox').style.display = 'none';
     authBtn.style.display = 'none';
-    syncSection.style.display = 'block';
     
     // Save token to IndexedDB
     if (result.tokens) {
@@ -253,21 +278,43 @@ async function loadDriveFolders() {
   const result = await window.electronAPI.listDriveFolders();
   
   if (result.success) {
-    // Clear existing options except the first one
+    // Clear existing options
     driveFolderSelect.innerHTML = '<option value="">-- Select existing or create new --</option>';
+    driveFolderOptions.innerHTML = '';
     
     if (result.folders.length === 0) {
       addLog('No folders found in Drive', 'info');
+      driveFolderOptions.innerHTML = '<div class="px-4 py-2 text-sm text-gray-500">No folders found</div>';
     } else {
       result.folders.forEach(folder => {
+        // Add to hidden select for compatibility
         const option = document.createElement('option');
         option.value = folder.id;
-        // Show full path in dropdown
         option.textContent = folder.path || folder.name;
-        // Store name as data attribute for later use
         option.setAttribute('data-name', folder.name);
         option.setAttribute('data-path', folder.path || folder.name);
         driveFolderSelect.appendChild(option);
+        
+        // Add to custom dropdown
+        const dropdownOption = document.createElement('div');
+        dropdownOption.className = 'px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 cursor-pointer flex items-center gap-2';
+        dropdownOption.innerHTML = `
+          <svg class="w-4 h-4 text-blue-500" fill="currentColor" viewBox="0 0 20 20">
+            <path d="M2 6a2 2 0 012-2h5l2 2h5a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V6z"></path>
+          </svg>
+          <span class="truncate">${folder.path || folder.name}</span>
+        `;
+        dropdownOption.addEventListener('click', () => {
+          driveFolderId = folder.id;
+          driveFolderSelectedText.textContent = folder.path || folder.name;
+          driveFolderSelect.value = folder.id;
+          driveFolderDropdownMenu.classList.add('hidden');
+          driveFolderChevron.style.transform = 'rotate(0deg)';
+          showStatus(driveFolderStatus, `Selected folder: ${folder.path || folder.name}`, 'success');
+          checkCanStartSync();
+          addLog(`Selected Drive folder: ${folder.path || folder.name}`, 'success');
+        });
+        driveFolderOptions.appendChild(dropdownOption);
       });
       addLog(`Loaded ${result.folders.length} folders from Drive`, 'success');
       
@@ -279,6 +326,7 @@ async function loadDriveFolders() {
             driveFolderSelect.selectedIndex = i;
             driveFolderId = lastConfig.driveFolderId;
             const folderPath = driveFolderSelect.options[i].getAttribute('data-path') || lastConfig.driveFolderName;
+            driveFolderSelectedText.textContent = folderPath;
             showStatus(driveFolderStatus, `Restored: ${folderPath}`, 'success');
             checkCanStartSync();
             break;
@@ -291,7 +339,7 @@ async function loadDriveFolders() {
   }
   
   loadDriveFoldersBtn.disabled = false;
-  loadDriveFoldersBtn.textContent = 'Refresh';
+  loadDriveFoldersBtn.textContent = '↻ Refresh';
 }
 
 loadDriveFoldersBtn.addEventListener('click', loadDriveFolders);
@@ -372,14 +420,14 @@ syncToggleBtn.addEventListener('click', async () => {
     isSyncing = false;
     syncToggleBtn.disabled = false;
     syncToggleBtn.textContent = 'Start Sync';
-    syncToggleBtn.className = 'btn btn-success';
+    syncToggleBtn.className = 'bg-primary hover:bg-primary-dark text-white px-4 py-2 rounded-lg text-sm font-medium shadow-md transition-all disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap';
     maxConcurrentSelect.disabled = false;
     conflictResolutionSelect.disabled = false;
     selectFolderBtn.disabled = false;
     driveFolderSelect.disabled = false;
     createDriveFolderBtn.disabled = false;
     loadDriveFoldersBtn.disabled = false;
-    updateSyncStatus('Sync stopped');
+    updateSyncStatus(false);
     addLog('Sync stopped', 'success');
   } else {
     // Start sync
@@ -444,14 +492,21 @@ syncToggleBtn.addEventListener('click', async () => {
         isSyncing = true;
         syncToggleBtn.disabled = false;
         syncToggleBtn.textContent = 'Stop Sync';
-        syncToggleBtn.className = 'btn btn-danger';
+        syncToggleBtn.className = 'bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg text-sm font-medium shadow-md transition-all disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap';
         maxConcurrentSelect.disabled = true;
         conflictResolutionSelect.disabled = true;
         selectFolderBtn.disabled = true;
         driveFolderSelect.disabled = true;
         createDriveFolderBtn.disabled = true;
         loadDriveFoldersBtn.disabled = true;
-        updateSyncStatus('Syncing...');
+        updateSyncStatus(true);
+        
+        // Show progress section
+        const progressSection = document.getElementById('progressSection');
+        if (progressSection) {
+          progressSection.style.display = 'block';
+        }
+        
         addLog('Sync started successfully', 'success');
       } else {
         throw new Error(result.error || 'Unknown error starting sync');
@@ -462,7 +517,7 @@ syncToggleBtn.addEventListener('click', async () => {
       showStatus(driveFolderStatus, `Error: ${error.message}`, 'error');
       syncToggleBtn.disabled = false;
       syncToggleBtn.textContent = 'Start Sync';
-      syncToggleBtn.className = 'btn btn-success';
+      syncToggleBtn.className = 'bg-primary hover:bg-primary-dark text-white px-4 py-2 rounded-lg text-sm font-medium shadow-md transition-all disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap';
     }
   }
 });
@@ -513,70 +568,244 @@ downloadLogBtn.addEventListener('click', () => {
 
 // Helper Functions
 function showStatus(element, message, type) {
+  const colors = {
+    success: 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 border border-green-200 dark:border-green-800',
+    error: 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 border border-red-200 dark:border-red-800',
+    info: 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 border border-blue-200 dark:border-blue-800',
+    warning: 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400 border border-yellow-200 dark:border-yellow-800'
+  };
+  
   element.textContent = message;
-  element.className = `status ${type}`;
+  element.className = `mt-3 p-3 rounded-lg text-sm ${colors[type] || colors.info}`;
   element.style.display = 'block';
 }
 
-function updateSyncStatus(message) {
-  syncStatusDiv.innerHTML = `<p>${message}</p>`;
+function updateSyncStatus(isSyncing) {
+  const badge = document.getElementById('syncStatusBadge');
+  const currentlySyncingSection = document.getElementById('currentlySyncingSection');
+  
+  if (isSyncing) {
+    badge.className = 'inline-flex items-center gap-2 px-3 py-1.5 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 rounded-full text-sm font-semibold border border-green-200 dark:border-green-800/50';
+    badge.innerHTML = `
+      <span class="relative flex h-2.5 w-2.5">
+        <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+        <span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-green-500"></span>
+      </span>
+      Live Syncing
+    `;
+    if (currentlySyncingSection) {
+      currentlySyncingSection.style.display = 'block';
+    }
+  } else {
+    badge.className = 'inline-flex items-center gap-2 px-3 py-1.5 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-400 rounded-full text-sm font-semibold';
+    badge.innerHTML = `
+      <span class="relative flex h-2.5 w-2.5">
+        <span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-gray-400"></span>
+      </span>
+      Idle
+    `;
+    // Keep section visible, just mark all files as completed
+    if (currentlySyncingSection && currentlySyncingFiles.size > 0) {
+      currentlySyncingSection.style.display = 'block';
+    }
+  }
 }
 
 function addLog(message, type = 'info') {
+  const syncLog = document.getElementById('syncLog');
   const entry = document.createElement('div');
-  entry.className = `log-entry ${type}`;
+  const colors = {
+    info: 'text-gray-600 dark:text-gray-400',
+    success: 'text-green-600 dark:text-green-400',
+    warning: 'text-yellow-600 dark:text-yellow-400',
+    error: 'text-red-600 dark:text-red-400'
+  };
+  
+  entry.className = `py-1 ${colors[type] || colors.info}`;
   const timestamp = new Date().toLocaleTimeString();
   entry.textContent = `[${timestamp}] ${message}`;
   syncLog.appendChild(entry);
-  syncLog.scrollTop = syncLog.scrollHeight;
   
   // Keep only last 100 entries
   while (syncLog.children.length > 100) {
     syncLog.removeChild(syncLog.firstChild);
   }
+  
+  // Also log to console for debugging
+  console.log(`[${type.toUpperCase()}] ${message}`);
 }
 
 function updateProgress(progress) {
   const progressSection = document.getElementById('progressSection');
   const progressBar = document.getElementById('progressBar');
   const progressText = document.getElementById('progressText');
-  const progressCount = document.getElementById('progressCount');
+  const progressPercentage = document.getElementById('progressPercentage');
   
   if (progress.total > 0) {
     progressSection.style.display = 'block';
     const percentage = Math.round((progress.current / progress.total) * 100);
     progressBar.style.width = `${percentage}%`;
-    progressText.textContent = progress.message || 'Syncing files...';
-    progressCount.textContent = `${progress.current} / ${progress.total}`;
+    progressPercentage.textContent = `${percentage}%`;
+    progressText.innerHTML = `
+      <svg class="w-4 h-4 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+      </svg>
+      <span>Syncing (${percentage}%) - ${progress.current} of ${progress.total} files</span>
+    `;
   } else {
     progressSection.style.display = 'none';
   }
 }
 
+// Track currently syncing files
+let currentlySyncingFiles = new Map();
+const MAX_DISPLAYED_FILES = 10; // Show last 10 files
+
 function updateCurrentFile(fileName) {
-  const currentFileSection = document.getElementById('currentFileSection');
-  const currentFileName = document.getElementById('currentFileName');
+  const currentlySyncingSection = document.getElementById('currentlySyncingSection');
+  const currentFilesList = document.getElementById('currentFilesList');
   
   if (fileName && fileName.trim()) {
-    currentFileSection.style.display = 'block';
-    currentFileName.textContent = fileName;
-  } else {
-    currentFileSection.style.display = 'none';
-    currentFileName.textContent = '';
+    // Always show the section once syncing starts
+    currentlySyncingSection.style.display = 'block';
+    
+    // Mark previous files as completed
+    currentlySyncingFiles.forEach((fileInfo, name) => {
+      if (fileInfo.status === 'uploading') {
+        fileInfo.status = 'completed';
+      }
+    });
+    
+    // Add new file as uploading
+    currentlySyncingFiles.set(fileName, { status: 'uploading', size: 0, completedAt: null });
+    
+    // Keep only last MAX_DISPLAYED_FILES
+    if (currentlySyncingFiles.size > MAX_DISPLAYED_FILES) {
+      const firstKey = currentlySyncingFiles.keys().next().value;
+      currentlySyncingFiles.delete(firstKey);
+    }
+    
+    renderCurrentFilesList();
+  } else if (fileName === null || fileName === '') {
+    // Mark all as completed when sync finishes
+    currentlySyncingFiles.forEach((fileInfo) => {
+      if (fileInfo.status === 'uploading') {
+        fileInfo.status = 'completed';
+        fileInfo.completedAt = Date.now();
+      }
+    });
+    renderCurrentFilesList();
   }
+}
+
+function getFileIcon(fileName) {
+  const ext = fileName.split('.').pop().toLowerCase();
+  const iconMap = {
+    // Documents
+    'pdf': { icon: '📄', color: 'bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400' },
+    'doc': { icon: '📘', color: 'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400' },
+    'docx': { icon: '📘', color: 'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400' },
+    'txt': { icon: '📝', color: 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400' },
+    'rtf': { icon: '📝', color: 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400' },
+    
+    // Spreadsheets
+    'xls': { icon: '📊', color: 'bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400' },
+    'xlsx': { icon: '📊', color: 'bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400' },
+    'csv': { icon: '📊', color: 'bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400' },
+    
+    // Presentations
+    'ppt': { icon: '📽️', color: 'bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400' },
+    'pptx': { icon: '📽️', color: 'bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400' },
+    
+    // Images
+    'jpg': { icon: '🖼️', color: 'bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400' },
+    'jpeg': { icon: '🖼️', color: 'bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400' },
+    'png': { icon: '🖼️', color: 'bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400' },
+    'gif': { icon: '🖼️', color: 'bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400' },
+    'svg': { icon: '🖼️', color: 'bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400' },
+    
+    // Videos
+    'mp4': { icon: '🎬', color: 'bg-pink-100 dark:bg-pink-900/30 text-pink-600 dark:text-pink-400' },
+    'avi': { icon: '🎬', color: 'bg-pink-100 dark:bg-pink-900/30 text-pink-600 dark:text-pink-400' },
+    'mov': { icon: '🎬', color: 'bg-pink-100 dark:bg-pink-900/30 text-pink-600 dark:text-pink-400' },
+    
+    // Audio
+    'mp3': { icon: '🎵', color: 'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400' },
+    'wav': { icon: '🎵', color: 'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400' },
+    
+    // Archives
+    'zip': { icon: '📦', color: 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-600 dark:text-yellow-400' },
+    'rar': { icon: '📦', color: 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-600 dark:text-yellow-400' },
+    '7z': { icon: '📦', color: 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-600 dark:text-yellow-400' },
+    
+    // Code
+    'js': { icon: '💻', color: 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-600 dark:text-yellow-400' },
+    'py': { icon: '💻', color: 'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400' },
+    'java': { icon: '💻', color: 'bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400' },
+    'html': { icon: '💻', color: 'bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400' },
+    'css': { icon: '💻', color: 'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400' },
+    'json': { icon: '💻', color: 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400' },
+  };
+  
+  return iconMap[ext] || { icon: '📄', color: 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400' };
+}
+
+function renderCurrentFilesList() {
+  const currentFilesList = document.getElementById('currentFilesList');
+  
+  if (currentlySyncingFiles.size === 0) {
+    currentFilesList.innerHTML = '<div class="text-center text-gray-500 dark:text-gray-400 py-8 text-sm">No files synced yet</div>';
+    return;
+  }
+  
+  const filesHTML = Array.from(currentlySyncingFiles.entries()).map(([fileName, fileInfo], index) => {
+    const fileIcon = getFileIcon(fileName);
+    const isUploading = fileInfo.status === 'uploading';
+    const isCompleted = fileInfo.status === 'completed';
+    
+    // Different styling for uploading vs completed
+    const cardOpacity = isCompleted ? 'opacity-50' : 'opacity-100';
+    const statusIcon = isUploading 
+      ? '<svg class="w-5 h-5 text-blue-500 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>'
+      : '<svg class="w-5 h-5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>';
+    
+    const statusText = isUploading ? 'Uploading...' : 'Completed';
+    const statusColor = isUploading ? 'text-gray-600 dark:text-gray-400' : 'text-green-600 dark:text-green-400';
+    
+    return `
+      <div class="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-4 flex items-center justify-between hover:shadow-md transition-all ${cardOpacity}">
+        <div class="flex items-center gap-4 flex-1 min-w-0">
+          <div class="w-12 h-12 rounded-lg ${fileIcon.color} flex items-center justify-center flex-shrink-0 text-2xl">
+            ${fileIcon.icon}
+          </div>
+          <div class="flex flex-col min-w-0 flex-1">
+            <span class="font-semibold text-gray-900 dark:text-white truncate">${fileName}</span>
+            <span class="text-sm ${statusColor}">${fileInfo.size ? formatFileSize(fileInfo.size) + ' • ' : ''}${statusText}</span>
+          </div>
+        </div>
+        <div class="flex-shrink-0 ml-4">
+          ${statusIcon}
+        </div>
+      </div>
+    `;
+  }).join('');
+  
+  currentFilesList.innerHTML = filesHTML;
 }
 
 // Conflict Dialog Functions
 function showConflictDialog(conflictInfo) {
   const dialog = document.getElementById('conflictDialog');
-  const fileName = document.getElementById('conflictFileName');
+  const fileNameLocal = document.getElementById('conflictFileNameLocal');
+  const fileNameDrive = document.getElementById('conflictFileNameDrive');
   const localTime = document.getElementById('conflictLocalTime');
   const driveTime = document.getElementById('conflictDriveTime');
   const localSize = document.getElementById('conflictLocalSize');
   const driveSize = document.getElementById('conflictDriveSize');
   
   // Populate dialog
-  fileName.textContent = conflictInfo.fileName;
+  fileNameLocal.textContent = conflictInfo.fileName;
+  fileNameDrive.textContent = conflictInfo.fileName;
   localTime.textContent = new Date(conflictInfo.localModified).toLocaleString();
   driveTime.textContent = new Date(conflictInfo.driveModified).toLocaleString();
   localSize.textContent = formatFileSize(conflictInfo.localSize);
