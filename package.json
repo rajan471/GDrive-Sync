@@ -43,7 +43,7 @@
           "arch": ["x64"]
         }
       ],
-      "icon": "AppLogo.png"
+      "icon": "build/icons/icon.png"
     },
     "nsis": {
       "oneClick": false,
@@ -51,12 +51,12 @@
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
       "shortcutName": "GDrive Sync",
-      "installerIcon": "AppLogo.png",
-      "uninstallerIcon": "AppLogo.png"
+      "installerIcon": "build/icons/icon.png",
+      "uninstallerIcon": "build/icons/icon.png"
     },
     "mac": {
       "target": ["dmg"],
-      "icon": "AppLogo.png",
+      "icon": "build/icons/icon.png",
       "category": "public.app-category.productivity"
     },
     "dmg": {
@@ -75,11 +75,11 @@
     },
     "linux": {
       "target": ["deb"],
-      "icon": "AppLogo.png",
+      "icon": "build/icons",
       "category": "Utility",
       "maintainer": "rajankumar471@gmail.com",
       "desktop": {
-        "Name": "Google Drive Sync",
+        "Name": "GDrive Sync",
         "Comment": "Sync files with Google Drive",
         "Categories": "Utility;FileTransfer;",
         "StartupNotify": "true"
