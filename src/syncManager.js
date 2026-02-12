@@ -1,8 +1,10 @@
 const { google } = require('googleapis');
 const fs = require('fs').promises;
+const fsSync = require('fs');
 const path = require('path');
 const chokidar = require('chokidar');
 const FileTracker = require('./fileTracker');
+const { app } = require('electron');
 
 class SyncManager {
   constructor(tokens) {
@@ -124,18 +126,37 @@ class SyncManager {
     let clientId = process.env.GOOGLE_CLIENT_ID;
     let clientSecret = process.env.GOOGLE_CLIENT_SECRET;
 
-    // Fall back to config.json (development)
+    // Fall back to config.json
     if (!clientId || !clientSecret) {
       try {
-        const configPath = path.join(process.cwd(), 'config.json');
-        const config = require(configPath);
+        // Try multiple paths for config.json
+        const appPath = app.getAppPath();
+        const possiblePaths = [
+          path.join(appPath, 'config.json'),  // Inside asar or app directory
+          path.join(__dirname, '..', 'config.json'),  // Development
+          path.join(process.cwd(), 'config.json')  // Fallback
+        ];
         
-        if (config.google && config.google.clientId && config.google.clientSecret) {
+        let config = null;
+        for (const configPath of possiblePaths) {
+          try {
+            if (fsSync.existsSync(configPath)) {
+              const configData = fsSync.readFileSync(configPath, 'utf8');
+              config = JSON.parse(configData);
+              console.log(`Loaded config from: ${configPath}`);
+              break;
+            }
+          } catch (err) {
+            console.log(`Failed to load config from ${configPath}:`, err.message);
+          }
+        }
+        
+        if (config && config.google && config.google.clientId && config.google.clientSecret) {
           clientId = config.google.clientId;
           clientSecret = config.google.clientSecret;
         }
       } catch (error) {
-        // Config file doesn't exist or is invalid
+        console.error('Error loading config:', error);
       }
     }
 

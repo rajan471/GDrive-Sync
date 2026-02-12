@@ -21,20 +21,21 @@
   "license": "MIT",
   "build": {
     "appId": "com.gdrivesync.app",
-    "productName": "GDrive Sync",
+    "productName": "GDriveSync",
     "directories": {
       "output": "dist"
     },
     "files": [
       "**/*",
+      "config.json",
       "!**/*.md",
       "!.gitignore",
       "!dist",
-      "!node_modules",
-      "node_modules/googleapis/**/*",
-      "node_modules/chokidar/**/*",
-      "node_modules/express/**/*",
-      "node_modules/auto-launch/**/*"
+      "!build",
+      "!.git",
+      "!release.sh",
+      "!create-release.sh",
+      "!*.sh"
     ],
     "win": {
       "target": [
@@ -78,11 +79,13 @@
       "icon": "build/icons",
       "category": "Utility",
       "maintainer": "rajankumar471@gmail.com",
+      "executableName": "gdrivesync",
       "desktop": {
         "Name": "GDrive Sync",
         "Comment": "Sync files with Google Drive",
         "Categories": "Utility;FileTransfer;",
-        "StartupNotify": "true"
+        "StartupNotify": "true",
+        "StartupWMClass": "gdrivesync"
       }
     }
   },

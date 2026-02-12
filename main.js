@@ -74,11 +74,13 @@ const autoLauncher = new AutoLaunch({
   path: app.getPath('exe')
 });
 
+// Set app name (must match desktop file name on Linux)
+app.setName('gdrivesync');
+
 function createWindow() {
   mainWindow = new BrowserWindow({
     width: 900,
     height: 700,
-    icon: path.join(__dirname, 'AppLogo.png'),
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
@@ -92,16 +94,37 @@ function createWindow() {
   mainWindow.loadFile('index.html');
 }
 
-app.whenReady().then(() => {
-  createWindow();
-  startMemoryMonitoring();
-  
-  app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0) {
-      createWindow();
+// Single instance lock - prevent multiple instances
+const gotTheLock = app.requestSingleInstanceLock();
+
+if (!gotTheLock) {
+  // Another instance is already running, quit this one
+  logger.info('Another instance is already running. Quitting...');
+  app.quit();
+} else {
+  // This is the first instance
+  app.on('second-instance', (event, commandLine, workingDirectory) => {
+    // Someone tried to run a second instance, focus our window instead
+    logger.info('Second instance attempted, focusing existing window');
+    if (mainWindow) {
+      if (mainWindow.isMinimized()) {
+        mainWindow.restore();
+      }
+      mainWindow.focus();
     }
   });
-});
+
+  app.whenReady().then(() => {
+    createWindow();
+    startMemoryMonitoring();
+    
+    app.on('activate', () => {
+      if (BrowserWindow.getAllWindows().length === 0) {
+        createWindow();
+      }
+    });
+  });
+}
 
 app.on('window-all-closed', () => {
   stopMemoryMonitoring();
