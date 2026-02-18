@@ -4,7 +4,7 @@
 
 VERSION="v1.0.1"
 REPO="rajan471/GDrive-Sync"
-DEB_FILE="dist/gdrive-sync_1.0.0_amd64.deb"
+DEB_FILE="../dist/gdrive-sync_1.0.0_amd64.deb"
 
 echo "🚀 Creating GitHub Release $VERSION"
 echo "===================================="
@@ -51,7 +51,7 @@ gh release create $VERSION \
   "$DEB_FILE" \
   --repo "$REPO" \
   --title "GDrive Sync $VERSION - Initial Release" \
-  --notes-file RELEASE_NOTES_v1.0.md
+  --notes-file ../docs/RELEASE_NOTES_v1.0.md
 
 if [ $? -eq 0 ]; then
     echo ""
@@ -71,6 +71,6 @@ else
     echo "1. Go to: https://github.com/$REPO/releases/new"
     echo "2. Select tag: $VERSION"
     echo "3. Upload: $DEB_FILE"
-    echo "4. Copy notes from: RELEASE_NOTES_v1.0.md"
+    echo "4. Copy notes from: docs/RELEASE_NOTES_v1.0.md"
     exit 1
 fi

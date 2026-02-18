@@ -68,10 +68,10 @@ if [ $? -eq 0 ]; then
     echo "   2. Click 'Draft a new release'"
     echo "   3. Select tag: v1.0.0"
     echo "   4. Upload: dist/gdrive-sync_1.0.0_amd64.deb"
-    echo "   5. Copy release notes from: RELEASE_NOTES_v1.0.md"
+    echo "   5. Copy release notes from: docs/RELEASE_NOTES_v1.0.md"
     echo "   6. Publish release"
     echo ""
-    echo "📖 See GITHUB_RELEASE_STEPS.md for detailed instructions"
+    echo "📖 See docs/GITHUB_RELEASE_STEPS.md for detailed instructions"
     echo ""
 else
     echo ""
