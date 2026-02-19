@@ -1,0 +1,17 @@
+theme: jekyll-theme-slate
+title: GDrive Sync
+description: Two-way sync between local folders and Google Drive - Production-ready Electron desktop app
+show_downloads: true
+github_url: https://github.com/rajan471/GDrive-Sync
+
+# Jekyll settings
+markdown: kramdown
+kramdown:
+  input: GFM
+  hard_wrap: false
+
+# Collections
+collections:
+  docs:
+    output: true
+    permalink: /:collection/:path/
